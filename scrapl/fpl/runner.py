@@ -1,5 +1,5 @@
 from tqdm import tqdm
-import fpl.scraper as scraper
+import scrapl.fpl.scraper as scraper
 
 
 def run_scrapers(elements=[]):
