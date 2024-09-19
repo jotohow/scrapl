@@ -14,13 +14,24 @@ scrapl includes scraper code for the FPL API and [The Odds API](https://the-odds
 Instructions
 
 ### Installation
-Install from PyPI:
+Install from git using pip install
 
 ```
-$ add installations steps if you have to.
+pip install git+https://github.com/jth500/scrapl.git
 ```
 
 ### Example usage
+
+To extract stats for a specific player for every gameweek of the current season:
+```
+from scrapl.fpl.scraper import PlayerScraper
+
+element = 1
+ps = PlayerScraper(element)
+
+ps.scrape()
+# {'player_stats_1': [{'element': 1,...
+```
 
 To extract player and fixture data for the present season:
 ```
