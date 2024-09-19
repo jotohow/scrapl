@@ -14,7 +14,7 @@ scrapl includes scraper code for the FPL API and [The Odds API](https://the-odds
 Instructions
 
 ### Installation
-- using PyPI...
+Install from PyPI:
 
 ```
 $ add installations steps if you have to.
@@ -22,8 +22,15 @@ $ add installations steps if you have to.
 
 ### Example usage
 
+To extract player and fixture data for the present season:
 ```
-example
+from scrapl.fpl.runner import run_scrapers
+
+# Player IDs - if not provided all players will be scraped by default
+elements = [1, 2, 3]
+data = run_scrapers(elements)
+
+# Scraping fixtures and 3 players: 100%|██████████| 4/4 [00:00<00:00, 23.97it/s]
 ```
 
 ## Community
