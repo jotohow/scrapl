@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "scrapl"
+version = "0.1.0"
+description = "A Python package to scrape Premier League football data from the Fantasy Premier League API and betting data from the Odds API"
+authors = ["jth500 <jtobyh@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+requests = "^2.32.3"
+pandas = "^2.2.2"
+tenacity = "^9.0.0"
+tqdm = "^4.66.5"
+numpy = "^2.1.1"
+pytest = "^8.3.3"
+ipykernel = "^6.29.5"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
