@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "scrapl"
+version = "0.1.0"
+description = "Scrape Premier League data"
+authors = ["jth500 <jtobyh@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+requests = "^2.32.3"
+pandas = "^2.2.2"
+numpy = "^2.1.1"
+tenacity = "^9.0.0"
+pytest = "^8.3.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
