@@ -1,0 +1,15 @@
+name: scrapl
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.11
+  - numpy
+  - requests
+  - pandas
+  - tqdm
+  - tenacity
+  - pytest
+  - ipykernel
