@@ -10,7 +10,7 @@ readme = "README.md"
 python = "^3.11"
 requests = "^2.32.3"
 pandas = "^2.2.2"
-numpy = "^2.1.1"
+numpy = ">=1.17.0,<2"
 tenacity = "^9.0.0"
 pytest = "^8.3.3"
 
