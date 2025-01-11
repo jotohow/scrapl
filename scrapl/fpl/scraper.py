@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from ..logger import setup_logger
 from . import fixtures, gameweek, general, player
-from .base import BaseScraper
+from .base import FPLScraperBase
 from .return_schema import ScraperType
 
 logger = setup_logger(__name__)
@@ -56,7 +56,7 @@ class FPLScraper:
             k: ScraperType(scraper_type=k) for k in self.SCRAPERS.keys()
         }
 
-    def _scrape(self, scraper: BaseScraper) -> Dict[str, ScraperType]:
+    def _scrape(self, scraper: FPLScraperBase) -> Dict[str, ScraperType]:
         """
         Scrape the data for one scraper and add it to the scraped_data.
 
