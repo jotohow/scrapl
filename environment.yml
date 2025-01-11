@@ -13,3 +13,5 @@ dependencies:
   - tenacity
   - pytest
   - ipykernel
+  - pip:
+    - pydantic
