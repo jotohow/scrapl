@@ -12,20 +12,16 @@ Base Models to enforce the following return schema from the scrapers:
     }
 """
 
-from typing import Dict, List, Union
+from typing import Dict, List
 
 from pydantic import BaseModel
 
 
-class ScraperReturnData(BaseModel):
-    data: dict
-
-
 class ScraperSubType(BaseModel):
     scraper_sub_type: str
-    scraper_return_data: List[dict]
+    scraper_return_data: List[dict] = []
 
 
 class ScraperType(BaseModel):
     scraper_type: str
-    scraper_sub_types: Dict[str, ScraperSubType]
+    scraper_sub_types: Dict[str, ScraperSubType] = {}

@@ -1,7 +1,7 @@
 from scrapl.utils import setup_logger
 
 from .base import FPLScraperBase
-from .return_schema import ScraperReturnData, ScraperSubType, ScraperType
+from .return_schema import ScraperSubType, ScraperType
 
 logger = setup_logger(__name__)
 

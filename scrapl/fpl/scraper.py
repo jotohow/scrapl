@@ -1,10 +1,17 @@
-from dataclasses import dataclass, field
-from typing import List, Literal, Union
+"""
+A high level runner to scrape all the data from the FPL API. User can either initialise with 
+a list of scraper configs, or call init_all_scrapers() to initialise all scrapers.
+"""
+
+from dataclasses import dataclass
+from typing import Dict, List, Literal
 
 from tqdm import tqdm
 
 from ..logger import setup_logger
 from . import fixtures, gameweek, general, player
+from .base import BaseScraper
+from .return_schema import ScraperType
 
 logger = setup_logger(__name__)
 
@@ -25,8 +32,15 @@ class FPLScraper:
     }
 
     def __init__(self, scraper_config: List[ScraperConfig] = None):
+        """
+        Initialise the scraper with a list of scraper configs.
+
+        Args:
+            scraper_config (List[ScraperConfig], optional): List of config for each scraper. Defaults to None.
+        """
 
         if scraper_config:
+            # Initialise the scrapers with the given config
             self.scrapers = [
                 (
                     self.SCRAPERS[scraper.type](scraper.idx)
@@ -38,56 +52,65 @@ class FPLScraper:
         else:
             self.scrapers = []
 
-        self.scraped_data = {k: [] for k in self.SCRAPERS.keys()}
+        self.scraped_data = {
+            k: ScraperType(scraper_type=k) for k in self.SCRAPERS.keys()
+        }
+
+    def _scrape(self, scraper: BaseScraper) -> Dict[str, ScraperType]:
+        """
+        Scrape the data for one scraper and add it to the scraped_data.
+
+        Args:
+            scraper (BaseScraper): The scraper to scrape.
+
+        Returns:
+            Dict[str, ScraperType]: The scraped data.
+        """
+        scraper.scrape()
+
+        existing_sub_types = self.scraped_data[scraper.scraper_type].scraper_sub_types
+        for sub_type, data in scraper.scraped_data.scraper_sub_types.items():
+
+            # If the sub type is not in the existing sub types, add it
+            if sub_type not in existing_sub_types:
+                self.scraped_data[scraper.scraper_type].scraper_sub_types[
+                    sub_type
+                ] = data
+            else:
+                # If the sub type is already in the existing sub types, extend the data
+                self.scraped_data[scraper.scraper_type].scraper_sub_types[
+                    sub_type
+                ].scraper_return_data.extend(data.scraper_return_data)
+        return scraper.scraped_data
 
     def init_all_scrapers(self):
+        """
+        Initialise all scrapers.
+
+        Returns:
+            List[BaseScraper]: The list of scrapers.
+        """
 
         # Get the general scraper and collect the ids of the players
         logger.info("Initialising all scrapers")
         gis = self.SCRAPERS["general"]()
         self.scrapers.append(gis)
         logger.info("Scraping general info")
-        gis.scrape()  # sets its scrape value to True
-        elements = gis.scraped_data["element_map"].keys()
-        _scrapers = [player.PlayerScraper(el) for el in elements]
+        self._scrape(gis)
+
+        # Get the ids of the players and initialise the player scrapers
+        elements = gis.scraped_data.scraper_sub_types["element_map"].scraper_return_data
+        _scrapers = [player.PlayerScraper(el) for el in elements[0]]
         self.scrapers.extend(_scrapers)
+
+        # Get the ids of the fixtures and initialise the fixture scrapers
         self.scrapers.append(fixtures.FixtureScraper())
         return self.scrapers
 
-    # Noting that each scraper may return slightly different data strucutre. E.g. general will return a dict with
-    # team map, element map. gameweek will just be a list of player stats. What is a good way to handle this?
-    # I need to have an overarching return data structure works for all types of scrapers. The general one is the most general. Let's focus on that.
-    # This returns team map, element map, player map. It returns one for each.
-    # So I need to account for each scraper returning a different TYPE of data, and different numbers of the SAME TYPE of data.
-    # I think the best way to do this is to have a dict of lists.
-
-    # each scraper will return {type_of_data1: [{}, {}]}, {type_of_data2: [{}, {}]}, {type_of_data3: [{}, {}]}
-
-    # BUT: This doesn't account for player/gameweek, where multiple scrapers will return the same type of data, which should really
-    # be in the same list...
-
-    # Yeah, I think
-    """
-    {
-        "general": {
-            "team_map": [],
-            "element_map": [],
-            "gw_deadlines": [],
-        },
-        "player": {"player": []},
-        "gameweek": {"gameweek": []}},
-        "fixture": {"fixture": []},
-    }
-
-
-    # Yep. I think this is right. Need to have type (scraper), subtype (return type), then list of data 
-
-    # so each scraper should return {"team_map/player": []}
-    
-    
-    """
-
     def scrape(self):
+        """
+        Scrape with all instantiated scrapers.
+        """
         if not self.scrapers:
             raise ValueError(
                 "No scrapers given. Either initialise with specific scraper values, or call"
@@ -98,6 +121,5 @@ class FPLScraper:
         scraper_tqdm.set_description("Scraping all scrapers")
         for scraper in scraper_tqdm:
             if not scraper.scraped:
-                self.scraped_data[scraper.scraper_type] = scraper.scrape()
-                # self.scraped_data.update(scraper.scrape())
+                self._scrape(scraper)
         return self.scraped_data
