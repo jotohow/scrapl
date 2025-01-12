@@ -1,361 +1,125 @@
 """
-scraper.py
-
-This module contains classes and methods for scraping data from the Fantasy Premier League (FPL) API.
-It includes a base scraper class with common functionality and a specific scraper for general information.
-
-Classes:
-    FPLScraperBase: An abstract base class for FPL scrapers.
-    GenInfoScraper: A concrete implementation of FPLScraperBase for scraping general information.
-    FixtureScraper: A concrete implementation of FPLScraperBase for scraping fixture data.
-    GameweekScraper: A concrete implementation of FPLScraperBase for scraping high-level player stats for all gameweeks.
-    PlayerScraper: A concrete implementation of FPLScraperBase for scraping granular data for a specific player.
-
-Dependencies:
-    - requests: For making HTTP requests.
-    - pandas: For data manipulation and analysis.
-    - json: For handling JSON data.
-    - datetime: For handling date and time operations.
-    - abc: For defining abstract base classes.
-    - tenacity: For retrying operations with customizable behavior.
-    - lionel.utils: For setting up logging.
-
-Usage:
-    Create an instance of a scraper class and call its `scrape` method to retrieve data from the FPL API.
+A high level runner to scrape all the data from the FPL API. User can either initialise with 
+a list of scraper configs, or call init_all_scrapers() to initialise all scrapers.
 """
 
-import requests
-import pandas as pd
-import json
-import datetime as dt
-from abc import ABC, abstractmethod
-from tenacity import retry, stop_after_attempt, wait_fixed
+from dataclasses import dataclass
+from typing import Dict, List, Literal
 
-from scrapl.utils import setup_logger
+from tqdm import tqdm
+
+from ..logger import setup_logger
+from . import fixtures, gameweek, general, player
+from .base import FPLScraperBase
+from .return_schema import ScraperType
 
 logger = setup_logger(__name__)
 
 
-class FPLScraperBase(ABC):
-    """
-    Abstract base class for Fantasy Premier League (FPL) scrapers.
-    """
+@dataclass
+class ScraperConfig:
+    type: Literal["general", "fixtures", "gameweek", "player"]
+    idx: int = None
 
-    def __init__(self):
-        self.response_data = None
-        self.scraped_data = {}
-        self.scraped = False
 
-    @property
-    @abstractmethod
-    def url(self):
-        """
-        The URL to scrape data from.
-        """
-        pass
+class FPLScraper:
 
-    @abstractmethod
-    def scrape(self) -> dict:
-        """
-        Scrapes data from the specified URL and returns the scraped data as a dictionary.
+    SCRAPERS = {
+        "general": general.GenInfoScraper,
+        "fixtures": fixtures.FixtureScraper,
+        "gameweek": gameweek.GameweekScraper,
+        "player": player.PlayerScraper,
+    }
 
-        Returns:
-            dict: The scraped data.
+    def __init__(self, scraper_config: List[ScraperConfig] = None):
         """
-        pass
-
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(0.5), reraise=True)
-    def get_response(self, url: str):
-        """
-        Sends a GET request to the specified URL and returns the response.
+        Initialise the scraper with a list of scraper configs.
 
         Args:
-            url (str): The URL to send the request to.
-
-        Returns:
-            Response: The response object.
-
-        Raises:
-            AssertionError: If the response status code is not OK (200).
+            scraper_config (List[ScraperConfig], optional): List of config for each scraper. Defaults to None.
         """
-        r = requests.get(url)
-        assert r.ok
-        d = r.json()
-        self.response_data = d
-        return d
 
-    def to_json(self, fname):
-        """
-        Converts the scraped data to JSON format.
-        """
-        json.dump(self.scraped_data, fname, "w")
+        if scraper_config:
+            # Initialise the scrapers with the given config
+            self.scrapers = [
+                (
+                    self.SCRAPERS[scraper.type](scraper.idx)
+                    if scraper.idx is not None
+                    else self.SCRAPERS[scraper.type]()
+                )
+                for scraper in scraper_config
+            ]
+        else:
+            self.scrapers = []
 
-
-class GenInfoScraper(FPLScraperBase):
-    """
-    Scraper for general information from the Fantasy Premier League API.
-
-    Attributes:
-        url (str): The URL of the API endpoint.
-        team_map (dict): A dictionary mapping team IDs to team information.
-        gw_deadlines (dict): A dictionary mapping gameweek IDs to deadline times.
-        element_map (dict): A dictionary mapping element IDs to element information.
-    """
-
-    url = "https://fantasy.premierleague.com/api/bootstrap-static/"
-
-    def __init__(self):
-        super().__init__()
-        self.gw_deadlines = None
-
-    def scrape(self):
-        """
-        Scrapes the general information from the API endpoint.
-
-        Returns:
-            dict: A dictionary containing the scraped data.
-        """
-        d = self.get_response(self.url)
-        self.scraped_data["team_map"] = self.get_team_map(d)
-        self.scraped_data["gw_deadlines"] = self.get_gw_deadlines(d)
-        self.scraped_data["element_map"] = self.get_element_name_map(d)
-        self.scraped = True
-        logger.info("Scraped general info")
-        return self.scraped_data
-
-    @staticmethod
-    def get_team_map(response_data):
-        """
-        Retrieves the team map from the response data.
-
-        Returns:
-            dict: A dictionary mapping team IDs to team information.
-        """
-        team_map = {
-            team["id"]: {
-                "name": team["name"],
-                "strength": team["strength"],
-                "strength_overall_home": team["strength_overall_home"],
-                "strength_overall_away": team["strength_overall_away"],
-                "strength_attack_home": team["strength_attack_home"],
-                "strength_attack_away": team["strength_attack_away"],
-                "strength_defence_home": team["strength_defence_home"],
-                "strength_defence_away": team["strength_defence_away"],
-            }
-            for team in response_data["teams"]
+        self.scraped_data = {
+            k: ScraperType(scraper_type=k) for k in self.SCRAPERS.keys()
         }
-        return team_map
 
-    @staticmethod
-    def get_gw_deadlines(response_data):
+    def _scrape(self, scraper: FPLScraperBase) -> Dict[str, ScraperType]:
         """
-        Retrieves the gameweek deadlines from the response data.
+        Scrape the data for one scraper and add it to the scraped_data.
+
+        Args:
+            scraper (BaseScraper): The scraper to scrape.
 
         Returns:
-            dict: A dictionary mapping gameweek IDs to deadline times.
+            Dict[str, ScraperType]: The scraped data.
         """
-        gw_deadlines = {gw["id"]: gw["deadline_time"] for gw in response_data["events"]}
-        # self.gw_deadlines = gw_deadlines
-        return gw_deadlines
+        scraper.scrape()
 
-    @staticmethod
-    def get_element_name_map(response_data):
+        existing_sub_types = self.scraped_data[scraper.scraper_type].scraper_sub_types
+        for sub_type, data in scraper.scraped_data.scraper_sub_types.items():
+
+            # If the sub type is not in the existing sub types, add it
+            if sub_type not in existing_sub_types:
+                self.scraped_data[scraper.scraper_type].scraper_sub_types[
+                    sub_type
+                ] = data
+            else:
+                # If the sub type is already in the existing sub types, extend the data
+                self.scraped_data[scraper.scraper_type].scraper_sub_types[
+                    sub_type
+                ].scraper_return_data.extend(data.scraper_return_data)
+        return scraper.scraped_data
+
+    def init_all_scrapers(self):
         """
-        Retrieves the element name map from the response data.
+        Initialise all scrapers.
 
         Returns:
-            dict: A dictionary mapping element IDs to element information.
+            List[BaseScraper]: The list of scrapers.
         """
-        el = response_data["elements"]
-        element_name_map = {
-            el[i]["id"]: {
-                "id": el[i]["id"],
-                "web_name": el[i]["web_name"],
-                "first_name": el[i]["first_name"],
-                "second_name": el[i]["second_name"],
-                "team_id": el[i]["team"],
-                "element_type": el[i]["element_type"],
-            }
-            for i in range(len(el))
-        }
-        # self.element_map = element_name_map
-        return element_name_map
 
+        # Get the general scraper and collect the ids of the players
+        logger.info("Initialising all scrapers")
+        gis = self.SCRAPERS["general"]()
+        self.scrapers.append(gis)
+        logger.info("Scraping general info")
+        self._scrape(gis)
 
-class FixtureScraper(FPLScraperBase):
-    """
-    Scrape fixture data from the Fantasy Premier League API.
+        # Get the ids of the players and initialise the player scrapers
+        elements = gis.scraped_data.scraper_sub_types["element_map"].scraper_return_data
+        _scrapers = [player.PlayerScraper(el) for el in elements[0]]
+        self.scrapers.extend(_scrapers)
 
-    Attributes:
-        url (str): The URL of the API endpoint for fixtures.
-
-    Methods:
-        scrape(): Scrapes the fixture data from the API and returns it.
-        parse_fixtures(data): Parses the raw fixture data and returns a filtered list of fixtures.
-    """
-
-    url = "https://fantasy.premierleague.com/api/fixtures/"
-
-    def __init__(self):
-        super().__init__()
-        self.fixture_data = None
+        # Get the ids of the fixtures and initialise the fixture scrapers
+        self.scrapers.append(fixtures.FixtureScraper())
+        return self.scrapers
 
     def scrape(self):
         """
-        Scrapes the fixture data from the Fantasy Premier League API.
-
-        Returns:
-            dict: The scraped fixture data.
+        Scrape with all instantiated scrapers.
         """
-        d = self.get_response(self.url)
-        fixture_data = self.parse_fixtures(d)
-        self.scraped = True
-        self.scraped_data["fixtures"] = fixture_data
-        logger.info("Scraped Fixtures")
-        return self.scraped_data
+        if not self.scrapers:
+            raise ValueError(
+                "No scrapers given. Either initialise with specific scraper values, or call"
+                " init_all_scrapers() to initialise all scrapers."
+            )
 
-    @staticmethod
-    def parse_fixtures(data):
-        """
-        Parses the raw fixture data and returns a filtered list of fixtures.
-
-        Args:
-            data (list): The raw fixture data.
-
-        Returns:
-            list: The filtered list of fixtures.
-        """
-        keepkeys = [
-            "event",
-            "finished",
-            "id",
-            "kickoff_time",
-            "team_a",
-            "team_h",
-            "team_a_difficulty",
-            "team_h_difficulty",
-            "team_a_score",
-            "team_h_score",
-        ]
-        fixture_data = [{key: dict_[key] for key in keepkeys} for dict_ in data]
-        return fixture_data
-
-
-class GameweekScraper(FPLScraperBase):
-    """
-    Scraper for gameweek stats from the Fantasy Premier League API.
-
-    Attributes:
-        URL_BASE (str): The base URL for the API endpoint.
-        gameweek (int): The gameweek number.
-        url (str): The complete URL for the API endpoint.
-        scraped_data (dict): A dictionary to store the scraped data.
-        scraped (bool): A flag indicating whether the data has been scraped or not.
-    """
-
-    URL_BASE = "https://fantasy.premierleague.com/api/event/{GW}/live/"
-
-    def __init__(self, gameweek):
-        """
-        Initializes a new instance of the GameweekScraper class.
-
-        Args:
-            gameweek (int): The gameweek number.
-        """
-        super().__init__()
-        self.gameweek = gameweek
-        self.url = self.URL_BASE.format(GW=gameweek)
-        self.scraped_data = {}
-        self.scraped = False
-
-    @property
-    def url(self):
-        """
-        The complete URL for the API endpoint.
-
-        Returns:
-            str: The URL.
-        """
-        return self._url
-
-    @url.setter
-    def url(self, url):
-        """
-        Sets the URL for the API endpoint.
-
-        Args:
-            url (str): The URL.
-        """
-        self._url = url
-
-    def scrape(self):
-        """
-        Scrapes the gameweek stats from the API.
-
-        Returns:
-            dict: The scraped data.
-        """
-        d = self.get_response(self.url)
-        stats = self.parse_gameweek_stats(d)
-        self.scraped_data[f"gw_stats_{self.gameweek}"] = stats
-        self.scraped = True
-        return self.scraped_data
-
-    @staticmethod
-    def parse_gameweek_stats(response_data):
-        """
-        Parses the gameweek stats from the API response.
-
-        Returns:
-            list: A list of dictionaries containing the stats for each player.
-        """
-        stats = []
-        for player in response_data["elements"]:
-            d_ = {"id": player["id"]}
-            d_.update(player["stats"])
-            d_.update({"fixture_id": player["explain"][0]["fixture"]})
-            stats.append(d_)
-        return stats
-
-
-class PlayerScraper(FPLScraperBase):
-    """
-    Scrape player data from the Fantasy Premier League API.
-
-    Attributes:
-        URL_BASE (str): The base URL for the API endpoint.
-        id (int): The ID of the player to scrape.
-
-    Methods:
-        scrape(): Scrapes the player data and returns the scraped data.
-
-    """
-
-    URL_BASE = "https://fantasy.premierleague.com/api/element-summary/{ID}/"
-
-    def __init__(self, id):
-        super().__init__()
-        self.id = id
-        self.url = self.URL_BASE.format(ID=id)
-
-    @property
-    def url(self):
-        return self._url
-
-    @url.setter
-    def url(self, url):
-        self._url = url
-
-    def scrape(self):
-        """
-        Scrapes the player data from the API endpoint.
-
-        Returns:
-            dict: The scraped player data.
-
-        """
-        d = self.get_response(self.url)
-        stats = d["history"]
-        self.scraped_data[f"player_stats_{self.id}"] = stats
-        # logger.info("Scraped Player info")
+        scraper_tqdm = tqdm(self.scrapers)
+        scraper_tqdm.set_description("Scraping all scrapers")
+        for scraper in scraper_tqdm:
+            if not scraper.scraped:
+                self._scrape(scraper)
         return self.scraped_data

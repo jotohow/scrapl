@@ -1,5 +1,6 @@
 from tqdm import tqdm
-import scrapl.fpl.scraper as scraper
+
+from scrapl.fpl import fixtures, general, player
 
 
 def run_scrapers(elements=[]):
@@ -16,14 +17,14 @@ def run_scrapers(elements=[]):
     """
 
     # Scrape general info
-    gis = scraper.GenInfoScraper()
+    gis = general.GenInfoScraper()
     scraped_data = gis.scrape()
 
     # Extract player ids from general info
     elements = scraped_data["element_map"].keys() if not elements else elements
     n_players = len(elements)
-    scrapers = [scraper.PlayerScraper(el) for el in elements]
-    scrapers = scrapers + [scraper.FixtureScraper()]
+    scrapers = [player.PlayerScraper(el) for el in elements]
+    scrapers = scrapers + [fixtures.FixtureScraper()]
 
     # Run the player and fixture scrapers
     scraper_tqdm = tqdm(scrapers)

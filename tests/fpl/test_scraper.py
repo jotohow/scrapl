@@ -1,11 +1,13 @@
 import pytest
-from fpl.scraper import FixtureScraper, PlayerScraper, GenInfoScraper
 from requests.exceptions import ConnectionError
+
+from scrapl.fpl import fixtures, general, player
+from scrapl.fpl.return_schema import ScraperSubType, ScraperType
 
 
 @pytest.fixture(scope="session")
 def gis():
-    return GenInfoScraper()
+    return general.GenInfoScraper()
 
 
 @pytest.fixture(scope="session")
@@ -15,7 +17,7 @@ def gis_response(gis):
 
 @pytest.fixture(scope="session")
 def fs():
-    return FixtureScraper()
+    return fixtures.FixtureScraper()
 
 
 @pytest.fixture(scope="session")
@@ -25,7 +27,7 @@ def fs_response(fs):
 
 @pytest.fixture(scope="session")
 def ps():
-    return PlayerScraper(id=1)
+    return player.PlayerScraper(id=1)
 
 
 ## GENERAL INFO SCRAPER
@@ -45,46 +47,46 @@ def test_get_response_invalid_endpoint(gis):
 
 def test_get_team_map(gis, gis_response):
     team_map = gis.get_team_map(gis_response)
-    assert list(team_map.keys()) == list(range(1, 21))
-    assert team_map[1]["name"] == "Arsenal"
+    assert list(team_map.scraper_return_data[0].keys()) == list(range(1, 21))
+    assert team_map.scraper_return_data[0][1]["name"] == "Arsenal"
 
 
 def test_get_gw_deadlines(gis, gis_response):
     # TODO: Will fail for the next season
     gw_deadlines = gis.get_gw_deadlines(gis_response)
-    assert list(gw_deadlines.keys()) == list(range(1, 39))
-    assert gw_deadlines[1] == "2024-08-16T17:30:00Z"
+    assert list(gw_deadlines.scraper_return_data[0].keys()) == list(range(1, 39))
+    assert gw_deadlines.scraper_return_data[0][1] == "2024-08-16T17:30:00Z"
 
 
 def test_get_element_name_map(gis, gis_response):
     element_name_map = gis.get_element_name_map(gis_response)
     # print(element_name_map)
-    assert element_name_map[1]["first_name"] == "Fábio"
+    assert element_name_map.scraper_return_data[0][1]["first_name"] == "Fábio"
 
 
 def test_general_scrape(gis):
     data = gis.scrape()
-    assert isinstance(data, dict)
-    assert "team_map" in data.keys()
-    assert "gw_deadlines" in data.keys()
-    assert "element_map" in data.keys()
+    assert isinstance(data, ScraperType)
+    assert "team_map" in data.scraper_sub_types.keys()
+    assert "gw_deadlines" in data.scraper_sub_types.keys()
+    assert "element_map" in data.scraper_sub_types.keys()
 
 
 def test_parse_fixtures(fs, fs_response):
     fixtures = fs.parse_fixtures(fs_response)
-    assert isinstance(fixtures, list)
-    assert len(fixtures) > 0
-    assert isinstance(fixtures[0], dict)
-    assert "event" in fixtures[0].keys()
-    assert "team_h" in fixtures[0].keys()
-    assert "team_a" in fixtures[0].keys()
+    assert isinstance(fixtures, ScraperSubType)
+    assert len(fixtures.scraper_return_data[0]) > 0
+    assert isinstance(fixtures.scraper_return_data[0], dict)
+    assert "event" in fixtures.scraper_return_data[0].keys()
+    assert "team_h" in fixtures.scraper_return_data[0].keys()
+    assert "team_a" in fixtures.scraper_return_data[0].keys()
 
 
 def test_fixture_scrape(fs):
     data = fs.scrape()
     # assert isinstance(data[0], dict)
-    assert "fixtures" in data.keys()
-    assert len(data["fixtures"]) == 380
+    assert "fixtures" in data.scraper_sub_types.keys()
+    assert len(data.scraper_sub_types["fixtures"].scraper_return_data) == 380
 
 
 def test_get_fixture_response_succeeds(fs):
@@ -118,5 +120,8 @@ def test_get_player_response_invalid_endpoint(ps):
 
 def test_scrape_player(ps):
     data = ps.scrape()
-    assert isinstance(data, dict)
-    assert data[f"player_stats_{ps.id}"][0]["element"] == ps.id
+    assert isinstance(data, ScraperType)
+    assert (
+        data.scraper_sub_types["player_stats"].scraper_return_data[0]["element"]
+        == ps.id
+    )
