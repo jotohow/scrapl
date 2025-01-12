@@ -11,7 +11,7 @@ A Python package to scrape Premier League (ScraPL) data from the Fantasy Premier
 - [About](#about)
 - [Features](#features)
 - [Installation](#installation)
-- [Usage](#usage)
+- [Example Usage](#example-usage)
   - [Basic Usage](#basic-usage)
   - [Advanced Examples](#advanced-examples)
 - [Contributing](#contributing)
@@ -39,70 +39,102 @@ You can install `scrapl` directly from GitHub using `pip`:
 pip install git+https://github.com/jth500/scrapl.git
 ```
 
-### Dependencies
+or clone the repo
 
-Ensure you have the following dependencies installed:
+## Example Usage
 
-You can install all dependencies using:
+### 1. Basic Usage
 
-```bash
-pip install git+https://github.com/jth500/scrapl.git
-```
-
-## Usage
-
-### Basic Usage
-
-#### Scraping Player Statistics for a Specific Player
-
-To extract statistics for a specific player across all gameweeks in the current season:
+This example showcases how to perform a simple scrape of general information and fixtures using the `FPLScraper` class. It initializes the scraper with a minimal configuration, runs the scraping process, and saves the results to a JSON file.
 
 ```python
-from scrapl.fpl.scraper import PlayerScraper
+"""
+Basic Usage Example
 
-# Initialize the scraper with the player ID (element)
-player_id = 1
-player_scraper = PlayerScraper(player_id)
+This script demonstrates how to initialize the FPLScraper with a specific list of scrapers,
+perform the scraping, and save the scraped data to a JSON file.
+"""
 
-# Perform the scraping
-player_stats = player_scraper.scrape()
+import os
+from scrapl.fpl.scraper import FPLScraper, ScraperConfig
 
-print(player_stats)
-# Output:
-# {
-#     'player_stats_1': [
-#         {'element': 1, 'gameweek': 1, 'points': 5, ...},
-#         {'element': 1, 'gameweek': 2, 'points': 7, ...},
-#         ...
-#     ]
-# }
+def main():
+    # Define a minimal set of scrapers to initialize: "general" and "fixtures"
+    scraper_config = [
+        ScraperConfig(scraper_type="general"),
+        ScraperConfig(scraper_type="fixtures"),
+    ]
+
+    # Initialize the FPLScraper with the specified configuration
+    fpl_scraper = FPLScraper(scraper_config=scraper_config)
+
+    # Run the scraping process
+    scraped_data = fpl_scraper.scrape()
+
+    # Display the top-level keys of the scraped data
+    print("Scraped data keys:", scraped_data.keys())
+
+    # Save the scraped data to a JSON file within the examples directory
+    output_file = os.path.join("scrapl", "examples", "output_basic_usage.json")
+    fpl_scraper.to_json(output_file)
+    print(f"Saved scraped data to {output_file}")
+
+    # Optionally, clear the scraped data from memory
+    fpl_scraper.clear_data()
+    print("Data cleared. Current stored data:", fpl_scraper.scraped_data)
+
+if __name__ == "__main__":
+    main()
 ```
 
-### Advanced Examples
 
-FPLScraper runs each type of scraper. Users can define specific types of scrape with config, or scrape everything by default.
+**Running the Script:**
 
-```python
-from scrapl.fpl.scraper import FPLScraper
+1. **Ensure Dependencies Are Installed**:  
+   Make sure you have all required packages installed, such as `tqdm`.
 
-# Either initialize the runner with a configs for each scraper. If none are given, everything is scraped
-scraper_configs = None # [{"type":"player", "idx": 1}, ...]
+2. **Navigate to the Project Root**:  
+   Open your terminal and navigate to the root directory of your project where the `scrapl/` package resides.
 
-scraper = FPLScraper(scraper_configs)
+3. **Execute the Script**:  
+   Run the script using Python:
+   ```bash
+   python -m src.examples.example_basic_usage
+   ```
 
-# Perform the scraping
-scraper.init_all_scrapers()
-data = scraper.scrape()
+4. **Verify Output**:  
+   After execution, check the `scrapl/examples/output_basic_usage.json` file to see the scraped data.
 
-print(data)
-# Example Output:
-# {
-#    "general": {"gw_deadlines": [...], "element_name_map": [...], "teams": [...]}
-#    "players": {"players": []},
-#    ...
-# }
-#
-```
+
+### 2. Advanced Examples
+
+For more comprehensive demonstrations, see the scripts provided in the [`examples/`](scrapl/examples/) directory of this repository.
+
+**Available Examples:**
+
+- **`example_init_all.py`**:  
+  Demonstrates how to initialize and scrape data using all available scrapers, including dependent scrapers like individual player data.
+
+- **`example_custom_scraper.py`**:  
+  Shows how to create and register a custom scraper, integrate it with the `FPLScraper`, and execute the scraping process.
+
+- **`example_basic_usage.py`**:  
+  (As detailed above) Provides a basic usage scenario for quick starts.
+
+**How to Access and Run Advanced Examples:**
+
+1. **Navigate to the root dir**:
+
+
+3. **Run an Example Script**:
+   For instance, to run the advanced script that initializes all scrapers:
+   ```bash
+   python -m scrapl.examples.example_init_all
+   ```
+
+4. **Review the Output**:  
+   Each script will save its scraped data to a corresponding JSON file within the `examples/` directory and print relevant information to the console.
+
 
 #### Scraping Odds Data from The Odds API
 
