@@ -22,13 +22,16 @@ Dependencies:
 
 Usage:
     Create an instance of a scraper class and call its `scrape` method to retrieve data from the FPL API.
+
+TODO: What if API keys change
 """
 
-import requests
-import pandas as pd
-import json
 import datetime as dt
+import json
 from abc import ABC, abstractmethod
+
+import pandas as pd
+import requests
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 from scrapl.utils import setup_logger
@@ -131,8 +134,9 @@ class GenInfoScraper(FPLScraperBase):
         Returns:
             dict: A dictionary mapping team IDs to team information.
         """
-        team_map = {
-            team["id"]: {
+        team_map = [
+            {
+                "team_id": team["id"],
                 "name": team["name"],
                 "strength": team["strength"],
                 "strength_overall_home": team["strength_overall_home"],
@@ -143,7 +147,7 @@ class GenInfoScraper(FPLScraperBase):
                 "strength_defence_away": team["strength_defence_away"],
             }
             for team in response_data["teams"]
-        }
+        ]
         return team_map
 
     @staticmethod
@@ -154,7 +158,11 @@ class GenInfoScraper(FPLScraperBase):
         Returns:
             dict: A dictionary mapping gameweek IDs to deadline times.
         """
-        gw_deadlines = {gw["id"]: gw["deadline_time"] for gw in response_data["events"]}
+        # gw_deadlines = {gw["id"]: gw["deadline_time"] for gw in response_data["events"]}
+        gw_deadlines = [
+            {"gameweek": gw["id"], "deadline": gw["deadline_time"]}
+            for gw in response_data["events"]
+        ]
         # self.gw_deadlines = gw_deadlines
         return gw_deadlines
 
@@ -167,8 +175,8 @@ class GenInfoScraper(FPLScraperBase):
             dict: A dictionary mapping element IDs to element information.
         """
         el = response_data["elements"]
-        element_name_map = {
-            el[i]["id"]: {
+        element_name_map = [
+            {
                 "id": el[i]["id"],
                 "web_name": el[i]["web_name"],
                 "first_name": el[i]["first_name"],
@@ -177,7 +185,7 @@ class GenInfoScraper(FPLScraperBase):
                 "element_type": el[i]["element_type"],
             }
             for i in range(len(el))
-        }
+        ]
         # self.element_map = element_name_map
         return element_name_map
 
@@ -356,6 +364,6 @@ class PlayerScraper(FPLScraperBase):
         """
         d = self.get_response(self.url)
         stats = d["history"]
-        self.scraped_data[f"player_stats_{self.id}"] = stats
+        self.scraped_data["player_stats"] = stats
         # logger.info("Scraped Player info")
         return self.scraped_data
