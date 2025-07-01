@@ -22,7 +22,10 @@ def run_scrapers(elements=[]):
     scraped_data["player_stats"] = []
 
     # Extract player ids from general info
-    elements = scraped_data["element_map"].keys() if not elements else elements
+
+    elements = (
+        [_["id"] for _ in scraped_data["element_map"]] if not elements else elements
+    )
     n_players = len(elements)
     scrapers = [scraper.PlayerScraper(el) for el in elements]
     scrapers = scrapers + [scraper.FixtureScraper()]
@@ -42,5 +45,5 @@ def run_scrapers(elements=[]):
 
 if __name__ == "__main__":
     # Example usage
-    scraped_data = run_scrapers(elements=[1, 2])
+    scraped_data = run_scrapers(elements=[])
     print(scraped_data["player_stats"])
