@@ -33,7 +33,7 @@ def run_scrapers(elements=[]):
     scraped_data_ = [scraper.scrape() for scraper in scraper_tqdm]
     for d in scraped_data_:
         if "player_stats" in list(d.keys())[0]:
-            scraped_data["player_stats"].append(list(d.values())[0])
+            scraped_data["player_stats"].extend(list(d.values())[0])
         else:
             scraped_data.update(d)
 
