@@ -34,7 +34,8 @@ def run_scrapers(elements=[]):
     for d in scraped_data_:
         if "player_stats" in list(d.keys())[0]:
             scraped_data["player_stats"].append(list(d.values())[0])
-        scraped_data.update(d)
+        else:
+            scraped_data.update(d)
 
     return scraped_data
 
