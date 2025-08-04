@@ -183,6 +183,7 @@ class GenInfoScraper(FPLScraperBase):
                 "second_name": el[i]["second_name"],
                 "team_id": el[i]["team"],
                 "element_type": el[i]["element_type"],
+                "now_cost": el[i]["now_cost"],
             }
             for i in range(len(el))
         ]
@@ -367,3 +368,8 @@ class PlayerScraper(FPLScraperBase):
         self.scraped_data["player_stats"] = stats
         # logger.info("Scraped Player info")
         return self.scraped_data
+
+
+if __name__ == "__main__":
+    g = GenInfoScraper()
+    g.scrape()
